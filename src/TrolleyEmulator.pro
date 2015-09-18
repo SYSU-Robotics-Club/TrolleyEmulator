@@ -30,5 +30,4 @@ HEADERS  += starterwindow.h \
 FORMS    += starterwindow.ui \
     buildcarwindow.ui
 
-RESOURCES += \
-    image.qrc
+RESOURCES +=
