@@ -2,6 +2,10 @@
 
 #include <math.h>
 #include <QXmlStreamWriter>
+#include <QDebug>
+#include <QBuffer>
+#include <QCryptographicHash>
+#include <QFile>
 
 CoreService* CoreService::instance = new CoreService();
 
@@ -69,14 +73,57 @@ void CoreService::buildMapStep()
 
 bool CoreService::saveStateToFile(const QString &filename)
 {
-    map->save(filename);
+    QByteArray xmlResult;
+    QXmlStreamWriter xmlStreamWriter(&xmlResult);
+
+    QByteArray mapData;
+    QBuffer buffer(&mapData);
+    map->save(&buffer, "png", 0);
+    buffer.close();
+
+    QByteArray SHA1Sum = QCryptographicHash::hash(mapData, QCryptographicHash::Sha1);
+
+    xmlStreamWriter.writeStartDocument();
+    xmlStreamWriter.writeStartElement("Project");
+    xmlStreamWriter.writeAttribute("name", "Trolley Emulator");
+    xmlStreamWriter.writeEndElement();
+    xmlStreamWriter.writeStartElement("map");
+    xmlStreamWriter.writeStartElement("SHA1");
+    xmlStreamWriter.writeCharacters(SHA1Sum.toHex());
+    xmlStreamWriter.writeEndElement();
+    xmlStreamWriter.writeStartElement("data");
+    xmlStreamWriter.writeCharacters(mapData.toHex());
+    xmlStreamWriter.writeEndElement();
+    xmlStreamWriter.writeEndElement();
+    xmlStreamWriter.writeEndDocument();
+
+    QFile saveFile(filename);
+
+    if (!saveFile.open(QIODevice::WriteOnly)) {
+        qDebug() << "save file: " + filename + " can not be opened";
+        return false;
+    }
+
+    if (saveFile.write(xmlResult.toStdString().c_str(), xmlResult.length()) == -1) {
+        qDebug() << "write file failed";
+        return false;
+    }
+    saveFile.close();
+
     return true;
 }
 
 bool CoreService::recoverStateFromFile(const QString &filename)
 {
+    QFile openFile(filename);
+    if (!openFile.open(QIODevice::ReadOnly)) {
+        qDebug() << "open file: " << filename << " failed";
+    }
+
+    QXmlStreamReader xmlStreamReader(&openFile);
+
+
     delete map;
-    map = new QImage(filename);
     return true;
 }
 
